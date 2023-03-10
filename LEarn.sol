@@ -129,4 +129,40 @@ contract LEarn{
         userEnrolledDatabase[msg.sender][_courseId].sectionsCompleted[_sectionId] = true;
 
     }
+
+    function transferAmountCreator(uint256 _courseId) external {
+
+        //Sanity check incorrect course id.
+        require(_courseId < courseId.current(), "Invalid course id.");
+
+        uint totalAmountPay = 0;
+
+        for(uint256 i=0; i<courseDatabase[_courseId].enrolledStudents.length; i++){
+            address currStudent = courseDatabase[_courseId].enrolledStudents[i];
+
+            //Transfer course fee by calculating to the creator only after the student course deadline is met.
+            uint256 _cummTimestamp = calculateTimestamp(_courseId, courseDatabase[_courseId].numSections.sub(1));
+            uint256 _exactDeadline = userEnrolledDatabase[currStudent][_courseId].timeEnrolled.add(_cummTimestamp);
+
+            if(_exactDeadline >= block.timestamp){
+                continue;
+            }
+
+            totalAmountPay = totalAmountPay.add(courseDatabase[_courseId].courseFee);
+
+            uint256 totalRefundAmount = 0;
+            for(uint256 j=0; j<courseDatabase[_courseId].numSections; j++){
+                if(userEnrolledDatabase[currStudent][_courseId].sectionsCompleted[j] == true){
+                    totalRefundAmount = totalRefundAmount.add(courseDatabase[_courseId].sectionRefundFee[j]);
+                }
+            }
+
+            totalAmountPay = totalAmountPay.sub(totalRefundAmount);
+        }
+
+        if(totalAmountPay > 0){
+            (bool success, ) = courseDatabase[_courseId].creatorAddress.call{value: totalAmountPay}("");
+            require(success, "Failed to send Ether");
+        }
+    }
 }
