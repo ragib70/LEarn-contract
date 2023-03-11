@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract LEarn{
+contract lEarn{
 
     /*
      *  Events
@@ -37,6 +37,12 @@ contract LEarn{
     }
 
     mapping(address => mapping(uint256 => userCourseInfo)) public userEnrolledDatabase;  
+
+    struct userCustomDatabase{
+        address user;
+        uint256[] enrolledCoursesId;
+        bool[][] sectionsCompleted;
+    }
 
     // Constructor.
     constructor() {// 1e16 = 0.01 matic
@@ -164,5 +170,35 @@ contract LEarn{
             (bool success, ) = courseDatabase[_courseId].creatorAddress.call{value: totalAmountPay}("");
             require(success, "Failed to send Ether");
         }
+    }
+
+    function getUserData() external view returns(userCustomDatabase memory _userInfo){
+        
+        _userInfo.user = msg.sender;
+        uint256 numCoursesEnrolled = 0;
+        for(uint256 _courseId=0; _courseId < courseDatabase.length; _courseId++){
+            if(userEnrolledDatabase[msg.sender][_courseId].timeEnrolled != 0){
+                numCoursesEnrolled = numCoursesEnrolled.add(1);
+            }
+        }
+
+        uint256[] memory _coursesArray = new uint256[](numCoursesEnrolled);
+        bool[][] memory _sectionsCompleted = new bool[][](numCoursesEnrolled);
+
+        uint256 _count = 0;
+        for(uint256 _courseId=0; _courseId < courseDatabase.length; _courseId++){
+            if(userEnrolledDatabase[msg.sender][_courseId].timeEnrolled != 0){
+                _coursesArray[_count] = _courseId;
+                bool[] memory _currSectionsCompleted = new bool[](courseDatabase[_courseId].numSections);
+                for(uint256 i=0; i < courseDatabase[_courseId].numSections; i++){
+                    _currSectionsCompleted[i] = userEnrolledDatabase[msg.sender][_courseId].sectionsCompleted[i];
+                }
+                _sectionsCompleted[_count] = _currSectionsCompleted;
+                _count = _count.add(1);
+            }
+        }
+
+        _userInfo.enrolledCoursesId = _coursesArray;
+        _userInfo.sectionsCompleted = _sectionsCompleted;        
     }
 }
